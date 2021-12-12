@@ -85,16 +85,10 @@ triangle :: Int -> Int
 triangle n = n * (n + 1) `div` 2
 
 day1 :: Text -> (Int, Int)
-day1 = both countIncreasing . (toSnd averages) . parse (linesOf int)
+day1 = (increasing 1 &&& increasing 3) . parse (linesOf int)
   where
-    add3 :: Int -> Int -> Int -> Int
-    add3 a b c = a + b + c
-
-    averages :: [Int] -> [Int]
-    averages xs = zipWith3 add3 xs (tail xs) (tail (tail xs))
-
-    countIncreasing :: [Int] -> Int
-    countIncreasing = count (==LT) . ap (zipWith compare) tail
+    increasing :: Int -> [Int] -> Int
+    increasing dist = count id . ap (zipWith (<)) (drop dist)
 
 data PilotCommand
   = Forward Int
