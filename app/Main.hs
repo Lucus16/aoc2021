@@ -139,11 +139,8 @@ day3 = both (uncurry (*) . both binaryToInt) . (a &&& b) . parse (linesOf (some 
 
 day4 :: Text -> (Int, Int)
 day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard)
-  . parse (liftA2 (,) parseDraws (some parseBoard))
+  . parse (liftA2 (,) commaInts (some parseBoard))
   where
-    parseDraws :: Parser [Int]
-    parseDraws = (int `sepBy` comma) <* newline
-
     parseBoard :: Parser [[Int]]
     parseBoard = newline *> replicateM 5 (replicateM 5 int <* newline)
 
