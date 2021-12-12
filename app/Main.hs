@@ -5,16 +5,16 @@ import Control.Arrow ((&&&))
 import Control.Exception (Exception(..), throw)
 import Control.Monad (ap, replicateM)
 import Data.Bifunctor (bimap)
-import Data.Char (isSpace)
-import Data.Foldable (foldl', for_)
+import Data.Char (isAlpha, isSpace)
+import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
-import Data.List (elemIndex, group, sort, sortOn, transpose)
+import Data.List ((\\), elemIndex, group, intersect, sort, sortOn, transpose, union)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Tuple.Extra (both)
 import Data.Void (Void)
 import System.IO (withFile, IOMode(..))
-import Text.Megaparsec (eof, errorBundlePretty, sepBy, single, takeWhileP)
+import Text.Megaparsec (eof, errorBundlePretty, satisfy, sepBy, single, takeWhile1P, takeWhileP)
 import Util (count)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
@@ -48,6 +48,12 @@ comma = void $ symbol ","
 arrow :: Parser ()
 arrow = void $ symbol "->"
 
+pipe :: Parser ()
+pipe = void $ symbol "|"
+
+word :: Parser Text
+word = lexeme $ takeWhile1P (Just "word") isAlpha
+
 lexeme :: Parser a -> Parser a
 lexeme = Lexer.lexeme spaces
 
@@ -72,14 +78,27 @@ command name cons = cons <$ symbol name
 binaryToInt :: [Bool] -> Int
 binaryToInt = foldl' (\n b -> n * 2 + fromEnum b) 0
 
+decimalToInt :: [Int] -> Int
+decimalToInt = foldl' (\n b -> n * 10 + b) 0
+
 mid :: [a] -> a
 mid xs = xs !! (length xs `div` 2)
+
+the :: (Eq a, Show a) => [a] -> a
+the (x:xs) | all (==x) xs = x
+the xs = error $ "ambiguous: " <> show xs
+
+theIndexIn :: (Eq a, Show a) => [a] -> a -> Int
+theIndexIn xs x = fromMaybe (error $ show x <> " not found in " <> show xs) $ elemIndex x xs
 
 toSnd :: (a -> b) -> a -> (a, b)
 toSnd f x = (x, f x)
 
 toFst :: (a -> b) -> a -> (b, a)
 toFst f x = (f x, x)
+
+without :: Eq a => [a] -> [a] -> [a]
+without = (\\)
 
 triangle :: Int -> Int
 triangle n = n * (n + 1) `div` 2
@@ -148,7 +167,7 @@ day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard)
     scoreBoard draws board = (winTurn, score)
       where
         drawTurn :: Int -> Int
-        drawTurn = fromMaybe (error "not drawn") . (`elemIndex` draws)
+        drawTurn = theIndexIn draws
 
         turnBoard :: [[(Int, Int)]]
         turnBoard = (fmap . fmap) (toFst drawTurn) board
@@ -202,8 +221,39 @@ day7 = (linearCost &&& costBy triangle) . sort . parse commaInts
         solutionRange = [minimum crabs .. maximum crabs]
         rateSolution n = sum $ map (costFunction . abs . subtract n) crabs
 
+day8 :: Text -> (Int, Int)
+day8 = (countEasy &&& sum . map (uncurry decode)) . parse (linesOf digitLine)
+  where
+    digit :: Parser String
+    digit = sort . Text.unpack <$> word
+
+    digitLine :: Parser ([String], [String])
+    digitLine = (,) <$> some digit <* pipe <*> some digit
+
+    countEasy = count (`elem` [2, 3, 4, 7]) . map length . concat . map snd
+
+    decode :: [String] -> [String] -> Int
+    decode digits = decimalToInt . map (digitMap digits)
+
+    digitMap :: [String] -> String -> Int
+    digitMap digits = theIndexIn [zero, one, two, three, four, five, six, seven, eight, nine]
+      where
+        withLength n = filter ((==n) . length) digits
+        one   = sort $ the $ withLength 2
+        seven = sort $ the $ withLength 3
+        four  = sort $ the $ withLength 4
+        adg   = sort $ foldl1 intersect $ withLength 5
+        abfg  = sort $ foldl1 intersect $ withLength 6
+        eight = sort $ the $ withLength 7
+        five  = sort $ adg `union` abfg
+        three = sort $ adg `union` one
+        nine  = sort $ five `union` one
+        zero  = sort $ eight `without` (adg `intersect` four)
+        two   = sort $ (eight `without` five) `union` adg
+        six   = sort $ five `union` (two `without` three)
+
 days :: [Text -> (Int, Int)]
-days = [ day1, day2, day3, day4, day5, day6, day7 ]
+days = [ day1, day2, day3, day4, day5, day6, day7, day8 ]
 
 main :: IO ()
 main = for_ (zip [1..] days) \(n, solve) -> do
