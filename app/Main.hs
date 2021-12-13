@@ -1,16 +1,17 @@
 module Main where
 
 import Control.Applicative ((<|>), liftA2, many, optional, some)
-import Control.Arrow ((&&&))
+import Control.Arrow ((&&&), first, second)
 import Control.Exception (Exception(..), throw)
 import Control.Monad (ap, replicateM)
 import Data.Bifunctor (bimap)
 import Data.Char (isAlpha, isSpace)
 import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
-import Data.List ((\\), elemIndex, group, intersect, sort, sortOn, transpose, union)
+import Data.List ((\\), elemIndex, group, intersect, nub, sort, sortOn, transpose, union)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.Traversable (for)
 import Data.Tuple.Extra (both)
 import Data.Void (Void)
 import System.IO (withFile, IOMode(..))
@@ -252,10 +253,58 @@ day8 = (countEasy &&& sum . map (uncurry decode)) . parse (linesOf digitLine)
         two   = sort $ (eight `without` five) `union` adg
         six   = sort $ five `union` (two `without` three)
 
+day9 :: Text -> (Int, Int)
+day9 = const (0, 0)
+
+day10 :: Text -> (Int, Int)
+day10 = const (0, 0)
+
+day11 :: Text -> (Int, Int)
+day11 = const (0, 0)
+
+day12 :: Text -> (Int, Int)
+day12 = const (0, 0)
+
+data Fold
+  = FoldAlongX Int
+  | FoldAlongY Int
+
+day13 :: Text -> (Int, String)
+day13 = bimap length render . both (nub . sort . uncurry (flip foldAll))
+  . (second (take 1) &&& id)
+  . parse ((,) <$> linesOf parseCoord <* newline <*> linesOf parseFold)
+  where
+    foldAll :: [Fold] -> [(Int, Int)] -> [(Int, Int)]
+    foldAll folds = map $ foldr (flip (.)) id $ map foldOver folds
+
+    foldOver :: Fold -> (Int, Int) -> (Int, Int)
+    foldOver (FoldAlongX fx) = first $ ap min (2*fx-)
+    foldOver (FoldAlongY fy) = second $ ap min (2*fy-)
+
+    parseFold :: Parser Fold
+    parseFold = symbol "fold along x=" *> fmap FoldAlongX int
+      <|> symbol "fold along y=" *> fmap FoldAlongY int
+
+    parseCoord :: Parser (Int, Int)
+    parseCoord = (,) <$> int <* comma <*> int
+
+    render :: [(Int, Int)] -> String
+    render coords = unlines renderBlock
+      where
+        renderPoint y x = if (x, y) `elem` coords then '#' else ' '
+        renderLine y = [0..fst size] <&> renderPoint y
+        renderBlock = [0..snd size] <&> renderLine
+        size = both maximum $ unzip coords
+
 days :: [Text -> (Int, Int)]
-days = [ day1, day2, day3, day4, day5, day6, day7, day8 ]
+days = [ day1, day2, day3, day4, day5, day6, day7, day8, day9, day10
+       , day11, day12 ]
 
 main :: IO ()
-main = for_ (zip [1..] days) \(n, solve) -> do
-  (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
-  putStrLn $ "Day " <> show n <> ": " <> show a <> "  " <> show b
+main = do
+  for_ (zip [1..] days) \(n, solve) -> do
+    (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
+    putStrLn $ "Day " <> show n <> ": " <> show a <> "  " <> show b
+
+  (day13a, day13b) <- day13 <$> withFile "input/day13" ReadMode Text.hGetContents
+  putStrLn $ "\nDay 13: " <> show day13a <> "\n" <> day13b
