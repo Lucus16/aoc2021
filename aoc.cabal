@@ -9,6 +9,9 @@ executable aoc
   hs-source-dirs:   app
   main-is:          Main.hs
 
+  other-modules:
+    Parse
+
   build-depends:
       base
     , containers

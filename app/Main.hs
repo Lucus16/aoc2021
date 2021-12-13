@@ -1,11 +1,8 @@
 module Main where
 
-import Control.Applicative ((<|>), liftA2, many, optional, some)
 import Control.Arrow ((&&&), first, second)
-import Control.Exception (Exception(..), throw)
-import Control.Monad (ap, replicateM)
+import Control.Monad (ap)
 import Data.Bifunctor (bimap)
-import Data.Char (isAlpha, isSpace)
 import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
 import Data.List ((\\), elemIndex, group, intersect, nub, sort, sortOn, transpose, union)
@@ -13,68 +10,13 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Tuple.Extra (both)
-import Data.Void (Void)
 import System.IO (withFile, IOMode(..))
-import Text.Megaparsec (eof, errorBundlePretty, satisfy, sepBy, single, takeWhile1P, takeWhileP)
 import Util (count)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
-import qualified Data.Text.Read as Text
-import qualified Text.Megaparsec
-import qualified Text.Megaparsec.Char.Lexer as Lexer
 
-type Parser = Text.Megaparsec.Parsec Void Text
-
-tshow :: Show a => a -> Text
-tshow = Text.pack . show
-
-parse :: Parser a -> Text -> a
-parse p = either (error . errorBundlePretty) id . Text.Megaparsec.parse (p <* space <* eof) "input"
-
-space :: Parser ()
-space = void $ takeWhileP (Just "space") isSpace
-
-spaces :: Parser ()
-spaces = void $ takeWhileP (Just "spaces") (==' ')
-
-newline :: Parser ()
-newline = void $ symbol "\n"
-
-emptyLine :: Parser ()
-emptyLine = newline >> newline
-
-comma :: Parser ()
-comma = void $ symbol ","
-
-arrow :: Parser ()
-arrow = void $ symbol "->"
-
-pipe :: Parser ()
-pipe = void $ symbol "|"
-
-word :: Parser Text
-word = lexeme $ takeWhile1P (Just "word") isAlpha
-
-lexeme :: Parser a -> Parser a
-lexeme = Lexer.lexeme spaces
-
-symbol :: Text -> Parser Text
-symbol = Lexer.symbol spaces
-
-int :: Parser Int
-int = lexeme Lexer.decimal
-
-commaInts :: Parser [Int]
-commaInts = (int `sepBy` comma) <* newline
-
-bit :: Parser Bool
-bit = command "0" False <|> command "1" True
-
-linesOf :: Parser a -> Parser [a]
-linesOf p = some $ p <* newline
-
-command :: Text -> a -> Parser a
-command name cons = cons <$ symbol name
+import Parse (PaperFold(..), PilotCommand(..))
+import qualified Parse
 
 fromBase :: (Eq a, Show a) => [a] -> [a] -> Int
 fromBase digits = foldl' (\n d -> n * length digits + theIndexIn digits d) 0
@@ -102,26 +44,16 @@ triangle :: Int -> Int
 triangle n = n * (n + 1) `div` 2
 
 day1 :: Text -> (Int, Int)
-day1 = (increasing 1 &&& increasing 3) . parse (linesOf int)
+day1 = (increasing 1 &&& increasing 3) . Parse.day1
   where
     increasing :: Int -> [Int] -> Int
     increasing dist = count id . ap (zipWith (<)) (drop dist)
 
-data PilotCommand
-  = Forward Int
-  | Down Int
-  | Up Int
-
 day2 :: Text -> (Int, Int)
-day2 = (a &&& b) . parse (linesOf pilotCommand)
+day2 = (a &&& b) . Parse.day2
   where
     a = uncurry (*) . foldl' runCommand (0, 0)
     b = (\(x, y, _) -> x * y) . foldl' runCommand2 (0, 0, 0)
-
-    pilotCommand :: Parser PilotCommand
-    pilotCommand = command "forward" Forward <*> int
-      <|> command "down" Down <*> int
-      <|> command "up" Up <*> int
 
     runCommand :: (Int, Int) -> PilotCommand -> (Int, Int)
     runCommand (distance, depth) command = case command of
@@ -136,7 +68,7 @@ day2 = (a &&& b) . parse (linesOf pilotCommand)
       Up n      -> (distance, depth, aim - n)
 
 day3 :: Text -> (Int, Int)
-day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . parse (linesOf (some bit))
+day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . Parse.day3
   where
     a = (map not &&& id) . map leastCommon . transpose
     b = (o2 &&& co2) . sort
@@ -155,12 +87,8 @@ day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . parse (l
         nums' = map tail $ filter ((==b) . head) nums
 
 day4 :: Text -> (Int, Int)
-day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard)
-  . parse (liftA2 (,) commaInts (some parseBoard))
+day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard) . Parse.day4
   where
-    parseBoard :: Parser [[Int]]
-    parseBoard = newline *> replicateM 5 (replicateM 5 int <* newline)
-
     scoreBoard :: [Int] -> [[Int]] -> (Int, Int)
     scoreBoard draws board = (winTurn, score)
       where
@@ -178,31 +106,26 @@ day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard)
         score :: Int
         score = winDraw * sum unmarked
 
-data Line = Line Int Int Int Int
-
 day5 :: Text -> (Int, Int)
 day5 = both (count ((> 1) . length) . group . sort . concatMap linePoints)
-  . (toFst $ filter $ not . isDiagonal) . parse (linesOf parseLine)
+  . (toFst $ filter $ not . isDiagonal) . Parse.day5
   where
-    parseLine :: Parser Line
-    parseLine = Line <$> int <* comma <*> int <* arrow <*> int <* comma <*> int
-
     range :: Int -> Int -> [Int]
     range x x'
       | x <  x' = [x .. x']
       | x >  x' = reverse [x' .. x]
       | otherwise = repeat x
 
-    isDiagonal :: Line -> Bool
-    isDiagonal (Line x y x' y') = x /= x' && y /= y'
+    isDiagonal :: ((Int, Int), (Int, Int)) -> Bool
+    isDiagonal ((x, y), (x', y')) = x /= x' && y /= y'
 
-    linePoints :: Line -> [(Int, Int)]
-    linePoints (Line x y x' y')
+    linePoints :: ((Int, Int), (Int, Int)) -> [(Int, Int)]
+    linePoints ((x, y), (x', y'))
       | x == x' && y == y' = [(x, y)]
       | otherwise = zip (range x x') (range y y')
 
 day6 :: Text -> (Int, Int)
-day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput . parse commaInts
+day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput . Parse.day6
   where
     groupInput :: [Int] -> [Int]
     groupInput = map (subtract 1 . length) . group . sort . ([0..8]++)
@@ -211,7 +134,7 @@ day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput . parse com
     step [x0,x1,x2,x3,x4,x5,x6,x7,x8] = [x1,x2,x3,x4,x5,x6,x7+x0,x8,x0]
 
 day7 :: Text -> (Int, Int)
-day7 = (linearCost &&& costBy triangle) . sort . parse commaInts
+day7 = (linearCost &&& costBy triangle) . sort . Parse.day7
   where
     linearCost crabs = sum $ map (abs . subtract (mid crabs)) crabs
     costBy costFunction crabs = minimum $ map rateSolution solutionRange
@@ -220,18 +143,12 @@ day7 = (linearCost &&& costBy triangle) . sort . parse commaInts
         rateSolution n = sum $ map (costFunction . abs . subtract n) crabs
 
 day8 :: Text -> (Int, Int)
-day8 = (countEasy &&& sum . map (uncurry decode)) . parse (linesOf digitLine)
+day8 = (countEasy &&& sum . map (uncurry decode)) . Parse.day8
   where
-    digit :: Parser String
-    digit = sort . Text.unpack <$> word
-
-    digitLine :: Parser ([String], [String])
-    digitLine = (,) <$> some digit <* pipe <*> some digit
-
     countEasy = count (`elem` [2, 3, 4, 7]) . map length . concat . map snd
 
     decode :: [String] -> [String] -> Int
-    decode digits = fromBase [0..10] . map (digitMap digits)
+    decode digits = fromBase [0..9] . map (digitMap digits)
 
     digitMap :: [String] -> String -> Int
     digitMap digits = theIndexIn [zero, one, two, three, four, five, six, seven, eight, nine]
@@ -260,8 +177,7 @@ data MatchResult
   | Incomplete Int
 
 day10 :: Text -> (Int, Int)
-day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens [])
-  . parse (linesOf $ some $ satisfy $ not . isSpace)
+day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens []) . Parse.day10
   where
     matchParens xs ('(':ys) = matchParens (')':xs) ys
     matchParens xs ('[':ys) = matchParens (']':xs) ys
@@ -271,10 +187,10 @@ day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens [
     matchParens [] [] = Correct
     matchParens [] _ = ExtraCloser
     matchParens xs [] = Incomplete $ fromBase " )]}>" xs
-    matchParens _ (')':ys) = Corrupt 3
-    matchParens _ (']':ys) = Corrupt 57
-    matchParens _ ('}':ys) = Corrupt 1197
-    matchParens _ ('>':ys) = Corrupt 25137
+    matchParens _ (')':_) = Corrupt 3
+    matchParens _ (']':_) = Corrupt 57
+    matchParens _ ('}':_) = Corrupt 1197
+    matchParens _ ('>':_) = Corrupt 25137
 
     catCorrupts (Corrupt x : xs) = x : catCorrupts xs
     catCorrupts (_ : xs) = catCorrupts xs
@@ -290,10 +206,6 @@ day11 = const (0, 0)
 day12 :: Text -> (Int, Int)
 day12 = const (0, 0)
 
-data Fold
-  = FoldAlongX Int
-  | FoldAlongY Int
-
 data Coords = Coords [(Int, Int)]
 
 instance Show Coords where
@@ -306,22 +218,14 @@ instance Show Coords where
 
 day13 :: Text -> (Int, Coords)
 day13 = bimap length Coords . both (nub . sort . uncurry (flip foldAll))
-  . (second (take 1) &&& id)
-  . parse ((,) <$> linesOf parseCoord <* newline <*> linesOf parseFold)
+  . (second (take 1) &&& id) . Parse.day13
   where
-    foldAll :: [Fold] -> [(Int, Int)] -> [(Int, Int)]
+    foldAll :: [PaperFold] -> [(Int, Int)] -> [(Int, Int)]
     foldAll folds = map $ foldr (flip (.)) id $ map foldOver folds
 
-    foldOver :: Fold -> (Int, Int) -> (Int, Int)
+    foldOver :: PaperFold -> (Int, Int) -> (Int, Int)
     foldOver (FoldAlongX fx) = first $ ap min (2*fx-)
     foldOver (FoldAlongY fy) = second $ ap min (2*fy-)
-
-    parseFold :: Parser Fold
-    parseFold = symbol "fold along x=" *> fmap FoldAlongX int
-      <|> symbol "fold along y=" *> fmap FoldAlongY int
-
-    parseCoord :: Parser (Int, Int)
-    parseCoord = (,) <$> int <* comma <*> int
 
 printDay :: (Show a, Show b) => Int -> (Text -> (a, b)) -> IO ()
 printDay n solve = do
