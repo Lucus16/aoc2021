@@ -9,7 +9,7 @@ import Data.Char (isAlpha, isSpace)
 import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
 import Data.List ((\\), elemIndex, group, intersect, nub, sort, sortOn, transpose, union)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Tuple.Extra (both)
@@ -76,11 +76,8 @@ linesOf p = some $ p <* newline
 command :: Text -> a -> Parser a
 command name cons = cons <$ symbol name
 
-binaryToInt :: [Bool] -> Int
-binaryToInt = foldl' (\n b -> n * 2 + fromEnum b) 0
-
-decimalToInt :: [Int] -> Int
-decimalToInt = foldl' (\n b -> n * 10 + b) 0
+fromBase :: (Eq a, Show a) => [a] -> [a] -> Int
+fromBase digits = foldl' (\n d -> n * length digits + theIndexIn digits d) 0
 
 mid :: [a] -> a
 mid xs = xs !! (length xs `div` 2)
@@ -139,7 +136,7 @@ day2 = (a &&& b) . parse (linesOf pilotCommand)
       Up n      -> (distance, depth, aim - n)
 
 day3 :: Text -> (Int, Int)
-day3 = both (uncurry (*) . both binaryToInt) . (a &&& b) . parse (linesOf (some bit))
+day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . parse (linesOf (some bit))
   where
     a = (map not &&& id) . map leastCommon . transpose
     b = (o2 &&& co2) . sort
@@ -234,7 +231,7 @@ day8 = (countEasy &&& sum . map (uncurry decode)) . parse (linesOf digitLine)
     countEasy = count (`elem` [2, 3, 4, 7]) . map length . concat . map snd
 
     decode :: [String] -> [String] -> Int
-    decode digits = decimalToInt . map (digitMap digits)
+    decode digits = fromBase [0..10] . map (digitMap digits)
 
     digitMap :: [String] -> String -> Int
     digitMap digits = theIndexIn [zero, one, two, three, four, five, six, seven, eight, nine]
@@ -256,8 +253,36 @@ day8 = (countEasy &&& sum . map (uncurry decode)) . parse (linesOf digitLine)
 day9 :: Text -> (Int, Int)
 day9 = const (0, 0)
 
+data MatchResult
+  = Correct
+  | ExtraCloser
+  | Corrupt Int
+  | Incomplete Int
+
 day10 :: Text -> (Int, Int)
-day10 = const (0, 0)
+day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens [])
+  . parse (linesOf $ some $ satisfy $ not . isSpace)
+  where
+    matchParens xs ('(':ys) = matchParens (')':xs) ys
+    matchParens xs ('[':ys) = matchParens (']':xs) ys
+    matchParens xs ('{':ys) = matchParens ('}':xs) ys
+    matchParens xs ('<':ys) = matchParens ('>':xs) ys
+    matchParens (x:xs) (y:ys) | x == y = matchParens xs ys
+    matchParens [] [] = Correct
+    matchParens [] _ = ExtraCloser
+    matchParens xs [] = Incomplete $ fromBase " )]}>" xs
+    matchParens _ (')':ys) = Corrupt 3
+    matchParens _ (']':ys) = Corrupt 57
+    matchParens _ ('}':ys) = Corrupt 1197
+    matchParens _ ('>':ys) = Corrupt 25137
+
+    catCorrupts (Corrupt x : xs) = x : catCorrupts xs
+    catCorrupts (_ : xs) = catCorrupts xs
+    catCorrupts [] = []
+
+    catIncompletes (Incomplete x : xs) = x : catIncompletes xs
+    catIncompletes (_ : xs) = catIncompletes xs
+    catIncompletes [] = []
 
 day11 :: Text -> (Int, Int)
 day11 = const (0, 0)
