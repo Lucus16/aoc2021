@@ -294,8 +294,18 @@ data Fold
   = FoldAlongX Int
   | FoldAlongY Int
 
-day13 :: Text -> (Int, String)
-day13 = bimap length render . both (nub . sort . uncurry (flip foldAll))
+data Coords = Coords [(Int, Int)]
+
+instance Show Coords where
+  show (Coords coords) = '\n' : unlines renderBlock
+    where
+      renderPoint y x = if (x, y) `elem` coords then '#' else ' '
+      renderLine y = [0..fst size] <&> renderPoint y
+      renderBlock = [0..snd size] <&> renderLine
+      size = both maximum $ unzip coords
+
+day13 :: Text -> (Int, Coords)
+day13 = bimap length Coords . both (nub . sort . uncurry (flip foldAll))
   . (second (take 1) &&& id)
   . parse ((,) <$> linesOf parseCoord <* newline <*> linesOf parseFold)
   where
@@ -313,23 +323,23 @@ day13 = bimap length render . both (nub . sort . uncurry (flip foldAll))
     parseCoord :: Parser (Int, Int)
     parseCoord = (,) <$> int <* comma <*> int
 
-    render :: [(Int, Int)] -> String
-    render coords = unlines renderBlock
-      where
-        renderPoint y x = if (x, y) `elem` coords then '#' else ' '
-        renderLine y = [0..fst size] <&> renderPoint y
-        renderBlock = [0..snd size] <&> renderLine
-        size = both maximum $ unzip coords
-
-days :: [Text -> (Int, Int)]
-days = [ day1, day2, day3, day4, day5, day6, day7, day8, day9, day10
-       , day11, day12 ]
+printDay :: (Show a, Show b) => Int -> (Text -> (a, b)) -> IO ()
+printDay n solve = do
+  (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
+  putStrLn $ "Day " <> show n <> ": " <> show a <> "  " <> show b
 
 main :: IO ()
 main = do
-  for_ (zip [1..] days) \(n, solve) -> do
-    (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
-    putStrLn $ "Day " <> show n <> ": " <> show a <> "  " <> show b
-
-  (day13a, day13b) <- day13 <$> withFile "input/day13" ReadMode Text.hGetContents
-  putStrLn $ "\nDay 13: " <> show day13a <> "\n" <> day13b
+  printDay 1 day1
+  printDay 2 day2
+  printDay 3 day3
+  printDay 4 day4
+  printDay 5 day5
+  printDay 6 day6
+  printDay 7 day7
+  printDay 8 day8
+  printDay 9 day9
+  printDay 10 day10
+  printDay 11 day11
+  printDay 12 day12
+  printDay 13 day13
