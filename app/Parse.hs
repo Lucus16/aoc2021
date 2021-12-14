@@ -2,13 +2,13 @@ module Parse where
 
 import Control.Applicative ((<|>), liftA2, some)
 import Control.Monad (replicateM)
-import Data.Char (isAlpha, isSpace)
+import Data.Char (digitToInt, isAlpha, isSpace)
 import Data.Functor (void)
 import Data.List (sort)
 import Data.Text (Text)
 import Data.Void (Void)
 import Text.Megaparsec (eof, errorBundlePretty, satisfy, sepBy, takeWhile1P, takeWhileP)
-import Text.Megaparsec.Char (hspace, space)
+import Text.Megaparsec.Char (digitChar, hspace, space)
 import qualified Data.Text as Text
 import qualified Text.Megaparsec
 import qualified Text.Megaparsec.Char.Lexer as Lexer
@@ -27,8 +27,11 @@ comma = void $ symbol ","
 newline :: Parser ()
 newline = void $ symbol "\n"
 
-word :: Parser Text
-word = takeWhile1P (Just "word") isAlpha <* hspace
+word :: Parser String
+word = Text.unpack <$> takeWhile1P (Just "word") isAlpha <* hspace
+
+letter :: Parser Char
+letter = satisfy isAlpha
 
 int :: Parser Int
 int = Lexer.decimal <* hspace
@@ -38,6 +41,9 @@ commaInts = (int `sepBy` comma) <* newline
 
 bit :: Parser Bool
 bit = False <$ symbol "0" <|> True  <$ symbol "1"
+
+digit :: Parser Int
+digit = digitToInt <$> digitChar
 
 linesOf :: Parser a -> Parser [a]
 linesOf p = some $ p <* newline
@@ -83,7 +89,10 @@ day8 :: Text -> [([String], [String])]
 day8 = parse $ linesOf $ (,) <$> some segments <* symbol "|" <*> some segments
   where
     segments :: Parser String
-    segments = sort . Text.unpack <$> word
+    segments = sort <$> word
+
+day9 :: Text -> [[Int]]
+day9 = parse $ linesOf $ some digit
 
 day10 :: Text -> [String]
 day10 = parse $ linesOf $ some $ satisfy $ not . isSpace
@@ -98,3 +107,12 @@ day13 = parse $ (,) <$> linesOf coordinate <* newline <*> linesOf paperFold
     paperFold :: Parser PaperFold
     paperFold = symbol "fold along x=" *> fmap FoldAlongX int
       <|> symbol "fold along y=" *> fmap FoldAlongY int
+
+day14 :: Text -> (String, [((Char, Char), Char)])
+day14 = parse $ (,) <$> word <* space <*> linesOf pairInsertion
+  where
+    charPair :: Parser (Char, Char)
+    charPair = (,) <$> letter <*> letter <* hspace
+
+    pairInsertion :: Parser ((Char, Char), Char)
+    pairInsertion = (,) <$> charPair <* symbol "->" <*> letter

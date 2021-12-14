@@ -6,12 +6,14 @@ import Data.Bifunctor (bimap)
 import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
 import Data.List ((\\), elemIndex, group, intersect, nub, sort, sortOn, transpose, union)
+import Data.Map (Map)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Tuple.Extra (both)
 import System.IO (withFile, IOMode(..))
 import Util (count)
+import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 
@@ -168,7 +170,7 @@ day8 = (countEasy &&& sum . map (uncurry decode)) . Parse.day8
         six   = sort $ five `union` (two `without` three)
 
 day9 :: Text -> (Int, Int)
-day9 = const (0, 0)
+day9 = const (0, 0) . Parse.day9
 
 data MatchResult
   = Correct
@@ -227,6 +229,23 @@ day13 = bimap length Coords . both (nub . sort . uncurry (flip foldAll))
     foldOver (FoldAlongX fx) = first $ ap min (2*fx-)
     foldOver (FoldAlongY fy) = second $ ap min (2*fy-)
 
+day14 :: (String, [((Char, Char), Char)]) -> (Int, Int)
+day14 (initialString, insertionMap)
+  = both (uncurry (-) . (maximum &&& minimum) . elemCounts)
+  . ((!!10) &&& (!!40)) . iterate step . map (,1) . ap zip tail
+  $ initialString
+  where
+    elemCounts :: [((Char, Char), Int)] -> [Int]
+    elemCounts = Map.elems . Map.fromListWith (+)
+      . ((head initialString, 1) :) . map (snd . fst &&& snd)
+
+    step :: [((Char, Char), Int)] -> [((Char, Char), Int)]
+    step = Map.toList . Map.fromListWith (+) . concatMap getNewPairs
+
+    getNewPairs :: ((Char, Char), Int) -> [((Char, Char), Int)]
+    getNewPairs ((a, b), i) = [((a, c), i), ((c, b), i)]
+      where Just c = lookup (a, b) insertionMap
+
 printDay :: (Show a, Show b) => Int -> (Text -> (a, b)) -> IO ()
 printDay n solve = do
   (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
@@ -247,3 +266,4 @@ main = do
   printDay 11 day11
   printDay 12 day12
   printDay 13 day13
+  printDay 14 $ day14 . Parse.day14
