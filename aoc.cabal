@@ -11,6 +11,7 @@ executable aoc
 
   other-modules:
     Parse
+    Day18
 
   build-depends:
       base

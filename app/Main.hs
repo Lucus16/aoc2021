@@ -19,6 +19,7 @@ import qualified Data.Text.IO as Text
 
 import Parse (PaperFold(..), Parser, PilotCommand(..))
 import qualified Parse
+import qualified Day18
 
 fromBase :: (Eq a, Show a) => [a] -> [a] -> Int
 fromBase digits = foldl' (\n d -> n * length digits + theIndexIn digits d) 0
@@ -265,3 +266,4 @@ main = do
   printDay 10 Parse.day10 day10
   printDay 13 Parse.day13 day13
   printDay 14 Parse.day14 day14
+  printDay 18 Parse.day18 Day18.solve

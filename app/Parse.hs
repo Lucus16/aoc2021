@@ -116,3 +116,20 @@ day14 = (,) <$> word <* space <*> linesOf pairInsertion
 
     pairInsertion :: Parser ((Char, Char), Char)
     pairInsertion = (,) <$> charPair <* symbol "->" <*> letter
+
+data SnailfishNum
+  = Leaf Int
+  | Pair SnailfishNum SnailfishNum
+  | Explosion Int SnailfishNum Int
+
+instance Show SnailfishNum where
+  show (Leaf n) = show n
+  show (Pair x y) = "[" <> show x <> "," <> show y <> "]"
+  show (Explosion l n r) = "(Explosion " <> show l <> " " <> show n <> " " <> show r <> ")"
+
+day18 :: Parser [SnailfishNum]
+day18 = linesOf snailfishNum
+  where
+    snailfishNum :: Parser SnailfishNum
+    snailfishNum = Leaf <$> digit
+      <|> Pair <$ symbol "[" <*> snailfishNum <* symbol "," <*> snailfishNum <* "]"
