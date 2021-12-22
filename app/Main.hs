@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Arrow ((&&&), first, second)
-import Control.Monad (ap)
+import Control.Monad (ap, when)
 import Data.Bifunctor (bimap)
 import Data.Foldable (foldl', foldl1, for_)
 import Data.Functor ((<&>), void)
@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 
-import Parse (PaperFold(..), PilotCommand(..))
+import Parse (PaperFold(..), Parser, PilotCommand(..))
 import qualified Parse
 
 fromBase :: (Eq a, Show a) => [a] -> [a] -> Int
@@ -45,14 +45,14 @@ without = (\\)
 triangle :: Int -> Int
 triangle n = n * (n + 1) `div` 2
 
-day1 :: Text -> (Int, Int)
-day1 = (increasing 1 &&& increasing 3) . Parse.day1
+day1 :: [Int] -> (Int, Int)
+day1 = (increasing 1 &&& increasing 3)
   where
     increasing :: Int -> [Int] -> Int
     increasing dist = count id . ap (zipWith (<)) (drop dist)
 
-day2 :: Text -> (Int, Int)
-day2 = (a &&& b) . Parse.day2
+day2 :: [PilotCommand] -> (Int, Int)
+day2 = (a &&& b)
   where
     a = uncurry (*) . foldl' runCommand (0, 0)
     b = (\(x, y, _) -> x * y) . foldl' runCommand2 (0, 0, 0)
@@ -69,8 +69,8 @@ day2 = (a &&& b) . Parse.day2
       Down n    -> (distance, depth, aim + n)
       Up n      -> (distance, depth, aim - n)
 
-day3 :: Text -> (Int, Int)
-day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . Parse.day3
+day3 :: [[Bool]] -> (Int, Int)
+day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b)
   where
     a = (map not &&& id) . map leastCommon . transpose
     b = (o2 &&& co2) . sort
@@ -88,8 +88,8 @@ day3 = both (uncurry (*) . both (fromBase [False, True])) . (a &&& b) . Parse.da
         b = f $ head $ mid nums
         nums' = map tail $ filter ((==b) . head) nums
 
-day4 :: Text -> (Int, Int)
-day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard) . Parse.day4
+day4 :: ([Int], [[[Int]]]) -> (Int, Int)
+day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard)
   where
     scoreBoard :: [Int] -> [[Int]] -> (Int, Int)
     scoreBoard draws board = (winTurn, score)
@@ -108,9 +108,9 @@ day4 = both snd . (minimum &&& maximum) . uncurry (map . scoreBoard) . Parse.day
         score :: Int
         score = winDraw * sum unmarked
 
-day5 :: Text -> (Int, Int)
+day5 :: [((Int, Int), (Int, Int))] -> (Int, Int)
 day5 = both (count ((> 1) . length) . group . sort . concatMap linePoints)
-  . (toFst $ filter $ not . isDiagonal) . Parse.day5
+  . (toFst $ filter $ not . isDiagonal)
   where
     range :: Int -> Int -> [Int]
     range x x'
@@ -126,8 +126,8 @@ day5 = both (count ((> 1) . length) . group . sort . concatMap linePoints)
       | x == x' && y == y' = [(x, y)]
       | otherwise = zip (range x x') (range y y')
 
-day6 :: Text -> (Int, Int)
-day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput . Parse.day6
+day6 :: [Int] -> (Int, Int)
+day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput
   where
     groupInput :: [Int] -> [Int]
     groupInput = map (subtract 1 . length) . group . sort . ([0..8]++)
@@ -135,8 +135,8 @@ day6 = both sum . ((!! 80) &&& (!! 256)) . iterate step . groupInput . Parse.day
     step :: [Int] -> [Int]
     step [x0,x1,x2,x3,x4,x5,x6,x7,x8] = [x1,x2,x3,x4,x5,x6,x7+x0,x8,x0]
 
-day7 :: Text -> (Int, Int)
-day7 = (linearCost &&& costBy triangle) . sort . Parse.day7
+day7 :: [Int] -> (Int, Int)
+day7 = (linearCost &&& costBy triangle) . sort
   where
     linearCost crabs = sum $ map (abs . subtract (mid crabs)) crabs
     costBy costFunction crabs = minimum $ map rateSolution solutionRange
@@ -144,8 +144,8 @@ day7 = (linearCost &&& costBy triangle) . sort . Parse.day7
         solutionRange = [minimum crabs .. maximum crabs]
         rateSolution n = sum $ map (costFunction . abs . subtract n) crabs
 
-day8 :: Text -> (Int, Int)
-day8 = (countEasy &&& sum . map (uncurry decode)) . Parse.day8
+day8 :: [([String], [String])] -> (Int, Int)
+day8 = (countEasy &&& sum . map (uncurry decode))
   where
     countEasy = count (`elem` [2, 3, 4, 7]) . map length . concat . map snd
 
@@ -169,8 +169,8 @@ day8 = (countEasy &&& sum . map (uncurry decode)) . Parse.day8
         two   = sort $ (eight `without` five) `union` adg
         six   = sort $ five `union` (two `without` three)
 
-day9 :: Text -> (Int, Int)
-day9 = const (0, 0) . Parse.day9
+day9 :: [[Int]] -> (Int, Int)
+day9 = const (0, 0)
 
 data MatchResult
   = Correct
@@ -178,8 +178,8 @@ data MatchResult
   | Corrupt Int
   | Incomplete Int
 
-day10 :: Text -> (Int, Int)
-day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens []) . Parse.day10
+day10 :: [String] -> (Int, Int)
+day10 = (sum . catCorrupts &&& mid . sort . catIncompletes) . map (matchParens [])
   where
     matchParens xs ('(':ys) = matchParens (')':xs) ys
     matchParens xs ('[':ys) = matchParens (']':xs) ys
@@ -218,9 +218,9 @@ instance Show Coords where
       renderBlock = [0..snd size] <&> renderLine
       size = both maximum $ unzip coords
 
-day13 :: Text -> (Int, Coords)
+day13 :: ([(Int, Int)], [PaperFold]) -> (Int, Coords)
 day13 = bimap length Coords . both (nub . sort . uncurry (flip foldAll))
-  . (second (take 1) &&& id) . Parse.day13
+  . (second (take 1) &&& id)
   where
     foldAll :: [PaperFold] -> [(Int, Int)] -> [(Int, Int)]
     foldAll folds = map $ foldr (flip (.)) id $ map foldOver folds
@@ -246,24 +246,22 @@ day14 (initialString, insertionMap)
     getNewPairs ((a, b), i) = [((a, c), i), ((c, b), i)]
       where Just c = lookup (a, b) insertionMap
 
-printDay :: (Show a, Show b) => Int -> (Text -> (a, b)) -> IO ()
-printDay n solve = do
-  (a, b) <- solve <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
+printDay :: (Show b, Show c) => Int -> Parser a -> (a -> (b, c)) -> IO ()
+printDay n p solve = do
+  (a, b) <- solve . Parse.parse p <$> withFile ("input/day" <> show n) ReadMode Text.hGetContents
   putStrLn $ "Day " <> show n <> ": " <> show a <> "  " <> show b
 
 main :: IO ()
 main = do
-  printDay 1 day1
-  printDay 2 day2
-  printDay 3 day3
-  printDay 4 day4
-  printDay 5 day5
-  printDay 6 day6
-  printDay 7 day7
-  printDay 8 day8
-  printDay 9 day9
-  printDay 10 day10
-  printDay 11 day11
-  printDay 12 day12
-  printDay 13 day13
-  printDay 14 $ day14 . Parse.day14
+  printDay 1 Parse.day1 day1
+  printDay 2 Parse.day2 day2
+  printDay 3 Parse.day3 day3
+  printDay 4 Parse.day4 day4
+  printDay 5 Parse.day5 day5
+  printDay 6 Parse.day6 day6
+  printDay 7 Parse.day7 day7
+  printDay 8 Parse.day8 day8
+  printDay 9 Parse.day9 day9
+  printDay 10 Parse.day10 day10
+  printDay 13 Parse.day13 day13
+  printDay 14 Parse.day14 day14

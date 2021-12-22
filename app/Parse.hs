@@ -51,65 +51,65 @@ linesOf p = some $ p <* newline
 coordinate :: Parser (Int, Int)
 coordinate = (,) <$> int <* comma <*> int
 
-day1 :: Text -> [Int]
-day1 = parse $ linesOf int
+day1 :: Parser [Int]
+day1 = linesOf int
 
 data PilotCommand
   = Forward Int
   | Down Int
   | Up Int
 
-day2 :: Text -> [PilotCommand]
-day2 = parse $ linesOf pilotCommand
+day2 :: Parser [PilotCommand]
+day2 = linesOf pilotCommand
   where
     pilotCommand :: Parser PilotCommand
     pilotCommand = Forward <$ symbol "forward" <*> int
                <|> Down    <$ symbol "down"    <*> int
                <|> Up      <$ symbol "up"      <*> int
 
-day3 :: Text -> [[Bool]]
-day3 = parse $ linesOf $ some bit
+day3 :: Parser [[Bool]]
+day3 = linesOf $ some bit
 
-day4 :: Text -> ([Int], [[[Int]]])
-day4 = parse $ liftA2 (,) commaInts (some bingoBoard)
+day4 :: Parser ([Int], [[[Int]]])
+day4 = liftA2 (,) commaInts (some bingoBoard)
   where
     bingoBoard :: Parser [[Int]]
     bingoBoard = newline *> replicateM 5 (replicateM 5 int <* newline)
 
-day5 :: Text -> [((Int, Int), (Int, Int))]
-day5 = parse $ linesOf $ (,) <$> coordinate <* symbol "->" <*> coordinate
+day5 :: Parser [((Int, Int), (Int, Int))]
+day5 = linesOf $ (,) <$> coordinate <* symbol "->" <*> coordinate
 
-day6 :: Text -> [Int]
-day6 = parse commaInts
+day6 :: Parser [Int]
+day6 = commaInts
 
-day7 :: Text -> [Int]
-day7 = parse commaInts
+day7 :: Parser [Int]
+day7 = commaInts
 
-day8 :: Text -> [([String], [String])]
-day8 = parse $ linesOf $ (,) <$> some segments <* symbol "|" <*> some segments
+day8 :: Parser [([String], [String])]
+day8 = linesOf $ (,) <$> some segments <* symbol "|" <*> some segments
   where
     segments :: Parser String
     segments = sort <$> word
 
-day9 :: Text -> [[Int]]
-day9 = parse $ linesOf $ some digit
+day9 :: Parser [[Int]]
+day9 = linesOf $ some digit
 
-day10 :: Text -> [String]
-day10 = parse $ linesOf $ some $ satisfy $ not . isSpace
+day10 :: Parser [String]
+day10 = linesOf $ some $ satisfy $ not . isSpace
 
 data PaperFold
   = FoldAlongX Int
   | FoldAlongY Int
 
-day13 :: Text -> ([(Int, Int)], [PaperFold])
-day13 = parse $ (,) <$> linesOf coordinate <* newline <*> linesOf paperFold
+day13 :: Parser ([(Int, Int)], [PaperFold])
+day13 = (,) <$> linesOf coordinate <* newline <*> linesOf paperFold
   where
     paperFold :: Parser PaperFold
     paperFold = symbol "fold along x=" *> fmap FoldAlongX int
       <|> symbol "fold along y=" *> fmap FoldAlongY int
 
-day14 :: Text -> (String, [((Char, Char), Char)])
-day14 = parse $ (,) <$> word <* space <*> linesOf pairInsertion
+day14 :: Parser (String, [((Char, Char), Char)])
+day14 = (,) <$> word <* space <*> linesOf pairInsertion
   where
     charPair :: Parser (Char, Char)
     charPair = (,) <$> letter <*> letter <* hspace
